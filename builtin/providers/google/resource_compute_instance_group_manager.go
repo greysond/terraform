@@ -108,6 +108,24 @@ func resourceComputeInstanceGroupManager() *schema.Resource {
 				Computed: true,
 				Optional: true,
 			},
+
+			"auto_healing_policies": &schema.Schema{
+				Type:     schema.TypeList,
+				Optional: true,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"health_check": &schema.Schema{
+							Type:     schema.TypeString,
+							Required: true,
+						},
+
+						"initial_delay_sec": &schema.Schema{
+							Type:     schema.TypeInt,
+							Required: true,
+						},
+					},
+				},
+			},
 		},
 	}
 }
@@ -122,6 +140,18 @@ func getNamedPorts(nps []interface{}) []*compute.NamedPort {
 		})
 	}
 	return namedPorts
+}
+
+func getAutoHealingPolicies(ahps []interface{}) []*compute.AutoHealingPolicy {
+	autoHealingPolicies := make([]*compute.NamedPort, 0, len(ahps))
+	for _, v := range ahps {
+		np := v.(map[string]interface{})
+		autoHealingPolicies = append(autoHealingPolicies, &compute.AutoHealingPolicy{
+			HealthCheck: np["health_check"].(string),
+			InitialDelaySec: int64(np["initial_delay_sec"].(int)),
+		})
+	}
+	return autoHealingPolicies
 }
 
 func resourceComputeInstanceGroupManagerCreate(d *schema.ResourceData, meta interface{}) error {
@@ -153,6 +183,10 @@ func resourceComputeInstanceGroupManagerCreate(d *schema.ResourceData, meta inte
 
 	if v, ok := d.GetOk("named_port"); ok {
 		manager.NamedPorts = getNamedPorts(v.([]interface{}))
+	}
+
+	if v, ok := d.GetOk("auto_healing_policies"); ok {
+		manager.AutoHealingPolicies = getAutoHealingPolicies(v.([]interface{}))
 	}
 
 	if attr := d.Get("target_pools").(*schema.Set); attr.Len() > 0 {
